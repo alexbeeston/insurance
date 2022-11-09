@@ -8,16 +8,16 @@ namespace Insurance
 		{
 			Configs configs = new Configs
 			{
-				IndividualDeduct = 2500,
-				IndividualMax = 7000,
-				FamilyDeduct = 5000,
-				FamilyMax = 14000,
-				CoinsuranceRate = .2
+				IndividualDeduct = 4500,
+				IndividualMax = 4500,
+				FamilyDeduct = 9000,
+				FamilyMax = 9000,
+				CoinsuranceRate = 0
 			};
 			State state = new State();
 
-			AdjustState(state, configs, 1000, (int)People.Mom);
-			AdjustState(state, configs, 15000, (int)People.Baby);
+			AdjustState(state, configs, 30000, (int)People.Mom);
+			AdjustState(state, configs, 40000, (int)People.Baby);
 		}
 
 		static void AdjustState(State state, Configs configs, double billAmount, int indexOfPerson)
