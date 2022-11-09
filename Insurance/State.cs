@@ -21,6 +21,11 @@ namespace Insurance
 				return sum;
 			}
 		}
+
+		public static int PersonToIndex(People person)
+		{
+			return (int)person;
+		}
 	}
 
 	enum People

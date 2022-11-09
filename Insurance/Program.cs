@@ -16,38 +16,37 @@ namespace Insurance
 			};
 			State state = new State();
 
-			AdjustState(state, configs, 8000, People.Mom);
-			AdjustState(state, configs, 3000, People.Baby);
+			AdjustState(state, configs, 1000, (int)People.Mom);
+			AdjustState(state, configs, 15000, (int)People.Baby);
 		}
 
-		static void AdjustState(State state, Configs configs, double billAmount, People person)
+		static void AdjustState(State state, Configs configs, double billAmount, int indexOfPerson)
 		{
 			// State Validation
 			if (state.CummulativeFamilyPayment > configs.FamilyMax) throw new Exception("bad state: current cummulative family amount is greater than family max");
-			foreach (double individualAmount in state.CummulativeIndividualPayments) if (individualAmount > configs.IndividualMax) throw new Exception($"bad state: individual cummulative amount is {individualAmount}. Shouldn't be greater than {configs.IndividualMax}.");
+			foreach (double cummulativeIndividualPayment in state.CummulativeIndividualPayments) if (cummulativeIndividualPayment > configs.IndividualMax) throw new Exception($"bad state: individual cummulative amount is {cummulativeIndividualPayment}. Shouldn't be greater than {configs.IndividualMax}.");
 
 			// Continue
-			int i = (int)person;
-			if (state.CummulativeFamilyPayment >= configs.FamilyMax || state.CummulativeIndividualPayments[i] >= configs.IndividualMax)
+			if (state.CummulativeFamilyPayment >= configs.FamilyMax || state.CummulativeIndividualPayments[indexOfPerson] >= configs.IndividualMax)
 			{
 				return;
 			}
 			else
 			{
-				// which deductible will get hit first?
+				bool computeAsIndividual = (configs.IndividualDeduct - state.CummulativeIndividualPayments[indexOfPerson]) <= (configs.FamilyDeduct - state.CummulativeFamilyPayment);
+				double currentCummulative = computeAsIndividual ? state.CummulativeIndividualPayments[indexOfPerson] : state.CummulativeFamilyPayment;
+				double deductible = computeAsIndividual ? configs.IndividualDeduct : configs.FamilyDeduct;
+				double max = computeAsIndividual ? configs.IndividualMax : configs.FamilyMax;
 
+				double amountToPay = currentCummulative < deductible ?
+					GetAmountPaidBeforeDeductibleIsMet(billAmount, currentCummulative, deductible, max, configs.CoinsuranceRate) :
+					GetAmountPaidAfterDeductibleIsMet(billAmount, max - currentCummulative, configs.CoinsuranceRate);
 
-				double paymentByIndividual = state.CummulativeIndividualPayments[i] < configs.IndividualDeduct ?
-					GetAmountPaidBeforeDeductibleIsMet(billAmount, state.CummulativeIndividualPayments[i], configs.IndividualDeduct, configs.IndividualMax, configs.CoinsuranceRate) :
-					GetAmountPaidAfterDeductibleIsMet(billAmount, configs.IndividualMax - state.CummulativeIndividualPayments[i], configs.CoinsuranceRate);
-				if (state.CummulativeIndividualPayments[i] + paymentByIndividual > configs.IndividualMax) throw new Exception("calculated individual payment is greater than individual max out of pocket");
+				amountToPay = computeAsIndividual ?
+					Math.Min(amountToPay, configs.FamilyMax - state.CummulativeFamilyPayment) :
+					Math.Min(amountToPay, configs.IndividualMax - state.CummulativeIndividualPayments[indexOfPerson]);
 
-				double paymentByFamily = state.CummulativeFamilyPayment < configs.FamilyDeduct ?
-					GetAmountPaidBeforeDeductibleIsMet(billAmount, state.CummulativeFamilyPayment, configs.FamilyDeduct, configs.FamilyMax, configs.CoinsuranceRate) :
-					GetAmountPaidAfterDeductibleIsMet(billAmount, configs.FamilyMax - state.CummulativeFamilyPayment, configs.CoinsuranceRate);
-				if (state.CummulativeFamilyPayment + paymentByFamily > configs.FamilyMax) throw new Exception("calculated family payment is greater than individual max out of pocket");
-
-				state.CummulativeIndividualPayments[i] += Math.Min(paymentByIndividual, paymentByFamily);
+				state.CummulativeIndividualPayments[indexOfPerson] += amountToPay;
 			}
 		}
 
