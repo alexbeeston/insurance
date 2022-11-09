@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Text;
 using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Insurance
 {
@@ -8,11 +10,11 @@ namespace Insurance
     {
         static void Main(string[] args)
         {
-            int momLow = 6000;
-            int momHigh = 30000;
-            int babyLow = 2500;
-            int babyHigh = 30000;
-            int stepSize = 1000;
+            int momLow = 5000;
+            int momHigh = 10000;
+            int babyLow = 5000;
+            int babyHigh = 10000;
+            int stepSize = 500;
             Configs planA = new Configs
             {
                 IndividualDeduct = 2500,
@@ -30,13 +32,47 @@ namespace Insurance
                 CoinsuranceRate = 0
             };
 
-            string planACsv = GetCsvString(planA, momLow, momHigh, babyLow, babyHigh, stepSize);
-            string planBCsv = GetCsvString(planB, momLow, momHigh, babyLow, babyHigh, stepSize);
-            string finalString = planACsv + "\n\n\n" + planBCsv;
-            File.WriteAllText(@"..\..\..\output\data.csv", finalString);
+            List<List<double>> planACosts = new List<List<double>>();
+            List<List<double>> planBCosts = new List<List<double>>();
+
+            for (int babysBills = babyLow; babysBills <= babyHigh; babysBills += stepSize)
+            {
+                planACosts.Add(new List<double>());
+                planBCosts.Add(new List<double>());
+                for (int momsBill = momLow; momsBill <= momHigh; momsBill += stepSize)
+                {
+                    planACosts.Last().Add(ComputeCost(planA, momsBill, babysBills));
+                    planBCosts.Last().Add(ComputeCost(planB, momsBill, babysBills));
+                }
+            }
+
+            List<List<double>> diffs = new List<List<double>>();
+            for (int i = 0; i < planACosts.Count; i++)
+            {
+                diffs.Add(new List<double>());
+                for (int j = 0; j < planACosts[i].Count; j++)
+                {
+                    diffs.Last().Add(planBCosts[i][j] - planACosts[i][j]);
+                }
+            }
+
+            string planACostsTable = GetCsvString(planACosts, momLow, momHigh, babyLow, babyHigh, stepSize);
+            string planBCostsTable = GetCsvString(planBCosts, momLow, momHigh, babyLow, babyHigh, stepSize);
+            string diffsTable = GetCsvString(diffs, momLow, momHigh, babyLow, babyHigh, stepSize);
+
+            string output = planACostsTable + "\n\n" + planBCostsTable + "\n\n" + diffsTable;
+            File.WriteAllText(@"..\..\..\output\data.csv", output);
         }
 
-        static string GetCsvString(Configs configs, int momLow, int momHigh, int babyLow, int babyHigh, int stepSize)
+        static double ComputeCost(Configs configs, double momsBill, double babysBills)
+        {
+            State state = new State();
+            AdjustState(state, configs, momsBill, (int)People.Mom);
+            AdjustState(state, configs, babysBills, (int)People.Baby);
+            return state.CummulativeFamilyPayment;
+        }
+
+        static string GetCsvString(List<List<double>> numbers, int momLow, int momHigh, int babyLow, int babyHigh, int stepSize)
         {
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.Append(",");
@@ -50,20 +86,19 @@ namespace Insurance
             }
             stringBuilder.Append("\n");
 
+            int i = 0;
             for (int babysCosts = babyLow; babysCosts <= babyHigh; babysCosts += stepSize)
             {
                 stringBuilder.Append(babysCosts + ",");
-                for (int momsCosts = momLow; momsCosts <= momHigh; momsCosts += stepSize)
+                for (int j = 0; j < numbers[i].Count; j++)
                 {
-                    State state = new State();
-                    AdjustState(state, configs, momsCosts, (int)People.Mom);
-                    AdjustState(state, configs, babysCosts, (int)People.Baby);
-                    stringBuilder.Append(state.CummulativeFamilyPayment);
-                    if (momsCosts + stepSize <= momHigh)
+                    stringBuilder.Append(numbers[i][j]);
+                    if (j + 1< numbers[i].Count)
                     {
                         stringBuilder.Append(",");
                     }
                 }
+                i++;
                 stringBuilder.Append("\n");
             }
             return stringBuilder.ToString();
